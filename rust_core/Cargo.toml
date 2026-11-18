@@ -1,0 +1,19 @@
+[package]
+name = "natsuki_core"
+version = "0.1.0"
+edition = "2021"
+description = "Native sprite catalog, layered RGBA->ARGB32 compositor, and config store for Natsuki Shimeji"
+
+[lib]
+name = "natsuki_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+png = "0.17"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+

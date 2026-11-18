@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="frosting" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFB7D5"/>
+      <stop offset="100%" stop-color="#FF7AA8"/>
+    </linearGradient>
+    <linearGradient id="wrapper" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F06292"/>
+      <stop offset="100%" stop-color="#AD1457"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="#FFF0F6" stroke="#F48FB1" stroke-width="2.5"/>
+  <!-- Cupcake wrapper -->
+  <path d="M19 36 L45 36 L41 53 C40.6 54.4 39.4 55 38 55 L26 55 C24.6 55 23.4 54.4 23 53 Z" fill="url(#wrapper)" stroke="#6A0F3B" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M27 36 L28.5 55 M32 36 L32 55 M37 36 L35.5 55" stroke="#FFCDD2" stroke-width="1.4" opacity="0.65"/>
+  <!-- Frosting -->
+  <path d="M16 36 C13 36 12 31 16 28 C16 22 22 18 28 19 C30 14 38 14 39 20 C45 20 50 24 48 29 C51 32 49 36 45 36 Z" fill="url(#frosting)" stroke="#6A0F3B" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Natsuki red hairclip ribbon -->
+  <path d="M25 14 L32 18 L25 22 Z M39 14 L32 18 L39 22 Z" fill="#D50032" stroke="#6A0F3B" stroke-width="1.6" stroke-linejoin="round"/>
+  <circle cx="32" cy="18" r="2.2" fill="#FF4081" stroke="#6A0F3B" stroke-width="1.4"/>
+  <!-- Cat ears frost details -->
+  <circle cx="24" cy="29" r="1.7" fill="#6A0F3B"/>
+  <circle cx="40" cy="29" r="1.7" fill="#6A0F3B"/>
+  <path d="M29.5 31 Q32 33.5 34.5 31" fill="none" stroke="#6A0F3B" stroke-width="1.6" stroke-linecap="round"/>
+</svg>
+

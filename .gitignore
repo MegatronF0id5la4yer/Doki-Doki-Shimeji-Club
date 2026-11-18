@@ -1,0 +1,21 @@
+# Build outputs
+rust_core/target/
+natsuki-shimeji
+*.o
+*.so
+*.a
+*.d
+
+# Python bytecode & local logs/secrets
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.env
+config.json
+.venv/
+brain/models/
+
+
+# Third-party Workshop content (not redistributed)
+l4d2_workshop_vpks/
