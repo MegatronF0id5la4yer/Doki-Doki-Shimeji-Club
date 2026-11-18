@@ -386,6 +386,9 @@ private:
 
     // 3D & Sprite state
     std::string current_mood_ = "neutral";
+    int anger_level_ = 10;
+    int joy_level_ = 55;
+    std::string affect_state_ = "neutral";
     bool is_blinking_ = false;
     uint32_t variant_idx_ = 0;
     float model_yaw_deg_ = -14.0f;
@@ -468,6 +471,7 @@ private:
     GtkWidget* drawer_stack_ = nullptr;
     GtkWidget* lbl_drawer_title_ = nullptr;
     GtkWidget* lbl_drawer_tagline_ = nullptr;
+    GtkWidget* lbl_affect_meter_ = nullptr;
 
     // Dock widgets
     GtkWidget* btn_pause_ = nullptr;
@@ -954,7 +958,7 @@ private:
     }
 
     GtkLayerShellLayer target_floating_layer() const {
-        return always_on_top_ ? GTK_LAYER_SHELL_LAYER_OVERLAY : GTK_LAYER_SHELL_LAYER_BOTTOM;
+        return always_on_top_ ? GTK_LAYER_SHELL_LAYER_OVERLAY : GTK_LAYER_SHELL_LAYER_TOP;
     }
 
     static std::string monitor_id_for(GdkMonitor* m, int idx) {
@@ -1344,6 +1348,12 @@ private:
         gtk_style_context_add_class(gtk_widget_get_style_context(lbl_drawer_tagline_), "doki-tagline");
         gtk_widget_set_halign(lbl_drawer_tagline_, GTK_ALIGN_START);
         gtk_box_pack_start(GTK_BOX(title_col), lbl_drawer_tagline_, FALSE, FALSE, 0);
+
+        lbl_affect_meter_ = gtk_label_new("");
+        gtk_style_context_add_class(gtk_widget_get_style_context(lbl_affect_meter_), "doki-tagline");
+        gtk_widget_set_halign(lbl_affect_meter_, GTK_ALIGN_START);
+        gtk_box_pack_start(GTK_BOX(title_col), lbl_affect_meter_, FALSE, FALSE, 0);
+        refresh_affect_label();
         gtk_box_pack_start(GTK_BOX(header), title_col, TRUE, TRUE, 0);
 
         btn_drawer_close_ = gtk_button_new_with_label("Cerrar");
@@ -2016,6 +2026,10 @@ private:
         return fs;
     }
 
+    double current_vertical_lift() const {
+        return std::max(0.0, -bounce_offset_) + lifted_y_ + action_hover_px_;
+    }
+
     void render_sprite_now() {
         NatsukiPoseParams pose = build_live_pose_params();
         std::shared_ptr<FrameSurface> next = render_doki_frame(
@@ -2026,7 +2040,7 @@ private:
             int sw = current_frame_->raw.width;
             int sh = current_frame_->raw.height;
             int sx = current_sprite_x(sw);
-            sprite_rect_ = {sx, std::max(0, win_h_ - sh), sw, sh};
+            sprite_rect_ = {sx, std::max(0, static_cast<int>(std::round(win_h_ - sh - current_vertical_lift()))), sw, sh};
             if (std::abs(last_shape_sx_ - sx) >= 3) {
                 update_input_shape();
             }
@@ -2135,7 +2149,7 @@ private:
         apply_panel_lr(dock_window_, 10);
         apply_panel_lr(drawer_window_, 68);
 
-        sprite_rect_ = {sx, std::max(0, win_h_ - sh), sw, sh};
+        sprite_rect_ = {sx, std::max(0, static_cast<int>(std::round(win_h_ - sh - current_vertical_lift()))), sw, sh};
 
         if (btn_side_toggle_) {
             gtk_button_set_label(GTK_BUTTON(btn_side_toggle_),
@@ -2308,8 +2322,27 @@ private:
         }
     }
 
+    void refresh_affect_label() {
+        if (!lbl_affect_meter_) return;
+        std::string txt = tr("Mood: ", "Animo: ") + affect_state_ +
+                          " | " + tr("Joy ", "Alegria ") + std::to_string(joy_level_) + "%" +
+                          " | " + tr("Anger ", "Enojo ") + std::to_string(anger_level_) + "%";
+        gtk_label_set_text(GTK_LABEL(lbl_affect_meter_), txt.c_str());
+    }
+
     void trigger_random_action() {
-        int32_t aid = static_cast<int32_t>(g_random_int_range(1, 8));
+        int32_t aid = 1;
+        if (anger_level_ >= 55) {
+            // Angry Dokis refuse cute dances and do warning weapon poses or grumpy tilts
+            static const int32_t angry_Pool[] = {3, 5, 3};
+            aid = angry_Pool[g_random_int_range(0, 3)];
+        } else if (joy_level_ >= 75 && anger_level_ < 30) {
+            // Very happy Dokis favor energetic dances, spins, and jumps
+            static const int32_t happy_pool[] = {1, 2, 4, 6, 7};
+            aid = happy_pool[g_random_int_range(0, 5)];
+        } else {
+            aid = static_cast<int32_t>(g_random_int_range(1, 8));
+        }
         start_action(aid, true);
     }
 
@@ -2564,8 +2597,8 @@ private:
         show_bubble(always_on_top_
                         ? tr("OVERLAY layer: now floating even over fullscreen games!",
                              "Capa OVERLAY: ahora floto hasta encima de juegos fullscreen!")
-                        : tr("Background mode: tucked behind your apps.",
-                             "Modo fondo: ahora quedo detras de tus apps."),
+                        : tr("TOP layer: floating on desktop, hidden under fullscreen games.",
+                             "Capa TOP: visible en escritorio, se oculta bajo juegos fullscreen."),
                     "happy");
     }
 
@@ -2871,8 +2904,9 @@ private:
         bool force_pose_render = false;
 
         if (!paused_) {
-            // Smooth 60fps time-based breathing (~2.9s cycle) painted with sub-pixel Cairo bilinear filter.
-            breath_phase_ += dt * 2.15;
+            // Smooth 60fps time-based breathing (~2.9s cycle; livelier when ecstatic) painted with sub-pixel Cairo bilinear filter.
+            double breath_rate = (joy_level_ >= 78 && anger_level_ < 30) ? 2.65 : ((anger_level_ >= 60) ? 2.45 : 2.15);
+            breath_phase_ += dt * breath_rate;
             if (breath_phase_ > 628.318530718) breath_phase_ -= 628.318530718;
             breath_amount_ = 0.5 - 0.5 * std::cos(breath_phase_);
 
@@ -2911,7 +2945,9 @@ private:
                 if (auto_antics_ && !self_test_) {
                     next_antic_timer_ -= dt;
                     if (next_antic_timer_ <= 0.0) {
-                        next_antic_timer_ = 12.0 + g_random_int_range(0, 14);
+                        next_antic_timer_ = (joy_level_ >= 75 && anger_level_ < 30)
+                            ? (8.0 + g_random_int_range(0, 9))
+                            : (12.0 + g_random_int_range(0, 14));
                         trigger_random_action();
                     }
                 }
@@ -2932,7 +2968,8 @@ private:
                     }
                     if (roam_walking_) {
                         walk_speed_norm_ = std::min(1.0f, walk_speed_norm_ + static_cast<float>(dt * 3.4));
-                        double speed_px = 104.0 * walk_speed_norm_;
+                        double base_speed = (anger_level_ >= 60) ? 138.0 : ((joy_level_ >= 78 && anger_level_ < 30) ? 118.0 : 104.0);
+                        double speed_px = base_speed * walk_speed_norm_;
                         walk_x_ += walk_dir_ * speed_px * dt;
                         double min_x = sw * 0.5 + 18.0;
                         double max_x = std::max(min_x, win_w_ - sw * 0.5 - 18.0);
@@ -2952,7 +2989,11 @@ private:
                         model_yaw_deg_ += dyaw * static_cast<float>(std::min(1.0, dt * 7.5));
                     } else {
                         walk_speed_norm_ = std::max(0.0f, walk_speed_norm_ - static_cast<float>(dt * 4.5));
-                        if (walk_speed_norm_ <= 0.01f && std::abs(model_yaw_deg_) > 32.0f) {
+                        if (anger_level_ >= 70) {
+                            // Sulk and look away from the user when very angry
+                            float sulk_yaw = is_on_right_half(current_sprite_x(sw), sw) ? 132.0f : -132.0f;
+                            model_yaw_deg_ += (sulk_yaw - model_yaw_deg_) * static_cast<float>(std::min(1.0, dt * 4.0));
+                        } else if (walk_speed_norm_ <= 0.01f && std::abs(model_yaw_deg_) > 32.0f) {
                             float idle_yaw = is_on_right_half(current_sprite_x(sw), sw) ? 16.0f : -16.0f;
                             model_yaw_deg_ += (idle_yaw - model_yaw_deg_) * static_cast<float>(std::min(1.0, dt * 4.5));
                         }
@@ -3036,7 +3077,7 @@ private:
         // Keep sprite hitbox synchronized while walking / jumping
         int sx = current_sprite_x(sw);
         int sh = current_frame_ ? current_frame_->raw.height : target_height_;
-        sprite_rect_ = {sx, std::max(0, win_h_ - sh), sw, sh};
+        sprite_rect_ = {sx, std::max(0, static_cast<int>(std::round(win_h_ - sh - current_vertical_lift()))), sw, sh};
         if (std::abs(last_shape_sx_ - sx) >= 3) {
             update_input_shape();
         }
@@ -3145,6 +3186,19 @@ private:
                     talk_elapsed_ = 0;
                 }
             }
+            int prev_anger = anger_level_;
+            int prev_joy = joy_level_;
+            if (j.contains("anger") && j["anger"].is_number_integer()) {
+                anger_level_ = std::clamp(j["anger"].get<int>(), 0, 100);
+            }
+            if (j.contains("joy") && j["joy"].is_number_integer()) {
+                joy_level_ = std::clamp(j["joy"].get<int>(), 0, 100);
+            }
+            if (j.contains("affect") && j["affect"].is_string()) {
+                affect_state_ = j["affect"].get<std::string>();
+            }
+            refresh_affect_label();
+
             if (!j.value("ok", false)) return;
             std::string text = j.value("text", "");
             std::string mood = j.value("mood", "neutral");
@@ -3154,6 +3208,18 @@ private:
             }
             if (mood == "angry") {
                 self_test_angry_seen_ = true;
+            }
+            if (!self_test_) {
+                if (anger_level_ > prev_anger && anger_level_ >= 55) {
+                    // React physically to rising anger: stomp bounce & warning pose when furious
+                    trigger_bounce(-5.2);
+                    if (is_style_3d() && anger_level_ >= 75 && action_id_ == 0) {
+                        start_action(3, false);
+                    }
+                } else if (joy_level_ > prev_joy + 5 && joy_level_ >= 75 && anger_level_ < 30) {
+                    trigger_bounce(-4.0);
+                    spawn_audio_notes(2);
+                }
             }
             if (j.value("swarm", false)) {
                 trigger_doki_swarm();
@@ -3390,6 +3456,28 @@ private:
         return FALSE;
     }
 
+    std::string detect_poke_zone(double rx, double ry) const {
+        if (rx < 0.0 || rx > 1.0 || ry < 0.0 || ry > 1.0) return "";
+        if (is_style_3d()) {
+            // 3D L4D2 full-body models: head [0..0.255], chest [0.265..0.415], skirt [0.445..0.605]
+            if (ry < 0.255) return "poke_head";
+            if (rx >= 0.24 && rx <= 0.76 && ry >= 0.265 && ry <= 0.415) return "poke_zone1";
+            if (rx >= 0.14 && rx <= 0.86 && ry >= 0.445 && ry <= 0.605) return "poke_zone2";
+            return "click";
+        }
+        if (style_id_.rfind("jn_", 0) == 0) {
+            // 2D Just Natsuki waist-up sprites: large head [0..0.56], chest [0.61..0.96], no skirt
+            if (ry < 0.56) return "poke_head";
+            if (rx >= 0.18 && rx <= 0.82 && ry >= 0.61 && ry <= 0.96) return "poke_zone1";
+            return "click";
+        }
+        // 2D Salvation knees-up sprites: head [0..0.37], chest [0.42..0.64], skirt [0.75..1.00]
+        if (ry < 0.37) return "poke_head";
+        if (rx >= 0.25 && rx <= 0.75 && ry >= 0.42 && ry <= 0.64) return "poke_zone1";
+        if (rx >= 0.22 && rx <= 0.78 && ry >= 0.75 && ry <= 1.00) return "poke_zone2";
+        return "click";
+    }
+
     bool on_stage_release(GdkEventButton* ev) {
         if (ev->button != 1) return FALSE;
         pointer_pressed_ = false;
@@ -3432,20 +3520,12 @@ private:
             return TRUE;
         }
 
-        // Check normalized sprite hitbox
+        // Check normalized sprite hitbox matched to 3D / 2D-JN / 2D-Salvation proportions
         double rx = (ev->x - sprite_rect_.x) / std::max(1, sprite_rect_.width);
         double ry = (ev->y - sprite_rect_.y) / std::max(1, sprite_rect_.height);
-        if (rx < 0.0 || rx > 1.0 || ry < 0.0 || ry > 1.0) return FALSE;
-
-        if (rx >= 0.18 && rx <= 0.82 && ry >= 0.26 && ry <= 0.50) {
-            request_thought("poke_zone1");
-        } else if (rx >= 0.20 && rx <= 0.80 && ry > 0.50 && ry <= 0.74) {
-            request_thought("poke_zone2");
-        } else if (ry < 0.26) {
-            request_thought("poke_head");
-        } else {
-            request_thought("click");
-        }
+        std::string trigger = detect_poke_zone(rx, ry);
+        if (trigger.empty()) return FALSE;
+        request_thought(trigger);
         return TRUE;
     }
 
@@ -3462,7 +3542,7 @@ private:
         const double vertical_lift = std::max(0.0, -bounce_offset_) + lifted_y_ + action_hover_px_;
         [[maybe_unused]] int sy = static_cast<int>(win_h_ - sh - vertical_lift);
 
-        sprite_rect_ = {sx, std::max(0, win_h_ - sh), sw, sh};
+        sprite_rect_ = {sx, std::max(0, static_cast<int>(std::round(win_h_ - sh - current_vertical_lift()))), sw, sh};
 
         if (sound_reactive_) {
             const auto& th = effective_theme();
@@ -3825,8 +3905,8 @@ private:
             std::cerr << "[self-test] FAIL: toggle_layer_mode failed\n";
             return 9;
         }
-        if (!always_on_top_ && gtk_layer_get_layer(GTK_WINDOW(window_)) != GTK_LAYER_SHELL_LAYER_BOTTOM) {
-            std::cerr << "[self-test] FAIL: toggle_layer_mode did not switch to LAYER_BOTTOM\n";
+        if (!always_on_top_ && gtk_layer_get_layer(GTK_WINDOW(window_)) != GTK_LAYER_SHELL_LAYER_TOP) {
+            std::cerr << "[self-test] FAIL: toggle_layer_mode did not switch to LAYER_TOP\n";
             return 9;
         }
         toggle_layer_mode();
@@ -3944,13 +4024,45 @@ private:
             std::cerr << "[self-test] FAIL: screen_comment roundtrip not observed from brain\n";
             return 10;
         }
+        // Verify hitbox geometry across 3D full-body, 2D jn_* waist-up, and 2D salvation knees-up
+        std::string saved_style_hb = style_id_;
+        style_id_ = "natsuki_l4d2_3d";
+        if (detect_poke_zone(0.5, 0.16) != "poke_head" ||
+            detect_poke_zone(0.5, 0.34) != "poke_zone1" ||
+            detect_poke_zone(0.5, 0.52) != "poke_zone2" ||
+            detect_poke_zone(0.5, 0.80) != "click") {
+            std::cerr << "[self-test] FAIL: 3D hitbox proportions mismatch\n";
+            return 10;
+        }
+        style_id_ = "jn_nya_cat";
+        if (detect_poke_zone(0.5, 0.35) != "poke_head" ||
+            detect_poke_zone(0.5, 0.75) != "poke_zone1") {
+            std::cerr << "[self-test] FAIL: 2D jn_* hitbox proportions mismatch\n";
+            return 10;
+        }
+        style_id_ = "salvation_uniform";
+        if (detect_poke_zone(0.5, 0.25) != "poke_head" ||
+            detect_poke_zone(0.5, 0.52) != "poke_zone1" ||
+            detect_poke_zone(0.5, 0.85) != "poke_zone2") {
+            std::cerr << "[self-test] FAIL: 2D salvation hitbox proportions mismatch\n";
+            return 10;
+        }
+        style_id_ = saved_style_hb;
+
         self_test_bubble_seen_ = false;
         self_test_angry_seen_ = false;
         request_thought("poke_zone1");
         request_thought("poke_zone2");
         pump_events(500);
-        if (!self_test_bubble_seen_ || !self_test_angry_seen_ || last_brain_cmd_count_ < 3) {
-            std::cerr << "[self-test] FAIL: poke zone replies/angry mood not observed from brain\n";
+        if (!self_test_bubble_seen_ || !self_test_angry_seen_ || last_brain_cmd_count_ < 3 || anger_level_ < 50) {
+            std::cerr << "[self-test] FAIL: poke zone replies/angry mood or anger_level_ not observed from brain\n";
+            return 10;
+        }
+        int anger_peak = anger_level_;
+        for (int k = 0; k < 4; ++k) request_thought("poke_head");
+        pump_events(500);
+        if (anger_level_ >= anger_peak || joy_level_ < 40) {
+            std::cerr << "[self-test] FAIL: headpats did not cool anger or raise joy\n";
             return 10;
         }
 

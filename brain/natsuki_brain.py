@@ -61,6 +61,8 @@ SWARM_TRIGGER_PATTERN = re.compile(
 )
 
 from doki_dialogues import (
+    AFFECT_DIALOGUES_EN,
+    AFFECT_DIALOGUES_ES,
     BATMAN_WEIRD_EN,
     BATMAN_WEIRD_ES,
     MONIKA_EN,
@@ -305,6 +307,57 @@ class DokiBrain:
         self._recent_vision: List[str] = []
         self.voice_commands_enabled: bool = True
         self.voice_wake_word: bool = False
+        self.anger: int = 10
+        self.joy: int = 55
+
+    def affect_state(self) -> str:
+        if self.anger >= 80:
+            return "furious"
+        if self.anger >= 55:
+            return "angry"
+        if self.anger >= 32 and self.joy < 55:
+            return "annoyed"
+        if self.joy >= 80 and self.anger < 25:
+            return "ecstatic"
+        if self.joy >= 60 and self.anger < 35:
+            return "happy"
+        return "neutral"
+
+    def _adjust_affect(self, d_anger: int = 0, d_joy: int = 0) -> None:
+        self.anger = max(0, min(100, self.anger + d_anger))
+        self.joy = max(0, min(100, self.joy + d_joy))
+
+    def _apply_mood_feedback(self, mood: str) -> None:
+        m = (mood or "").lower()
+        if m == "angry":
+            self._adjust_affect(+12, -10)
+        elif m == "tsun":
+            self._adjust_affect(+4, -2)
+        elif m in ("happy", "excited", "laugh", "blush"):
+            self._adjust_affect(-8, +10)
+
+    def _apply_text_sentiment(self, user_text: str) -> None:
+        low = (user_text or "").lower()
+        nice_words = (
+            "love", "cute", "adorable", "pretty", "best", "thanks", "thank you", "sorry", "headpat",
+            "pat", "cupcake", "tea", "cookie", "sweet", "te amo", "te quiero", "linda", "bonita",
+            "hermosa", "gracias", "perdon", "lo siento", "galleta", "abrazo", "hug",
+        )
+        rude_words = (
+            "baka", "idiota", "tonta", "stupid", "dumb", "ugly", "fea", "shut up", "callate",
+            "hate", "odio", "annoying", "molesta", "worst",
+        )
+        if any(w in low for w in nice_words):
+            self._adjust_affect(-15, +14)
+        elif any(w in low for w in rude_words):
+            self._adjust_affect(+18, -14)
+
+    def _with_affect(self, resp: Dict[str, Any]) -> Dict[str, Any]:
+        out = dict(resp)
+        out["anger"] = self.anger
+        out["joy"] = self.joy
+        out["affect"] = self.affect_state()
+        return out
 
     def _pick_from_deck(self, key: str, pool: List[Tuple[str, str]]) -> Tuple[str, str]:
         if not pool:
@@ -405,6 +458,8 @@ class DokiBrain:
             f"Personality: {traits}. {user_desc}{weird_desc}"
             "Stay concise: 1 or 2 punchy sentences (under 185 characters). "
             f"Current visual state: outfit='{style_label}', expression='{current_mood}'. "
+            f"Current emotional meter: anger={self.anger}/100, happiness={self.joy}/100, state='{self.affect_state()}'. "
+            "Let these anger/happiness levels strongly shape your tone (irritable/snappy/sulking if angry; extra affectionate/energetic if very happy). "
             "STRICT FORMATTING RULE: Output ONLY a raw JSON object with keys 'mood' and 'text'. "
             f"'mood' MUST be one of: {', '.join(ALLOWED_MOODS)}. "
             "CRITICAL RULE: NEVER use any Unicode emojis, symbols, or kaomojis in 'text'. Plain text and normal punctuation only."
@@ -580,6 +635,15 @@ class DokiBrain:
             return False, "thinking", f"Parse error: {exc}"
 
     def _pick_spontaneous(self, char_id: str) -> Tuple[str, str]:
+        aff_bank = AFFECT_DIALOGUES_EN if self.language == "en" else AFFECT_DIALOGUES_ES
+        if self.anger >= 55:
+            pool = aff_bank.get(char_id, aff_bank["natsuki"])["angry"]
+            mood, raw = self._pick_from_deck(f"aff_angry_{char_id}_{self.language}", pool)
+            return mood, apply_user_name(raw, self.user_name)
+        if self.joy >= 78 and self.anger < 30:
+            pool = aff_bank.get(char_id, aff_bank["natsuki"])["happy"]
+            mood, raw = self._pick_from_deck(f"aff_happy_{char_id}_{self.language}", pool)
+            return mood, apply_user_name(raw, self.user_name)
         easter = name_easter_kind(self.user_name)
         if easter and random.random() < 0.65:
             mood, raw = self._pick_from_deck(f"weird_{easter}_{char_id}_{self.language}", self._weird_pool_for(easter, char_id))
@@ -601,6 +665,9 @@ class DokiBrain:
         return self._pick_spontaneous(char_id)
 
     def handle(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        return self._with_affect(self._handle_inner(req))
+
+    def _handle_inner(self, req: Dict[str, Any]) -> Dict[str, Any]:
         cmd = req.get("cmd", "")
         char_id = normalize_character(str(req.get("character", self.character)))
         if "user_name" in req and isinstance(req["user_name"], str):
@@ -765,16 +832,19 @@ class DokiBrain:
             now_str = datetime.datetime.now().strftime("%H:%M")
             manual = bool(req.get("manual", False))
             self._auto_turn += 1
+            if not manual:
+                self._adjust_affect(-4 if self.anger > 0 else 0, +1 if self.joy < 45 else (-1 if self.joy > 65 else 0))
             easter = name_easter_kind(self.user_name)
-            # When Batman/Monika easter egg is active, mix Gemini and local weird decks
+            # When Batman/Monika easter egg is active or Doki is strongly angry/ecstatic, mix Gemini and affect decks
             use_gemini = bool(self.api_key) and (manual or (self._auto_turn > 1 and (self._auto_turn % 4) == 0))
-            if easter and not manual and random.random() < 0.45:
+            if (easter or self.anger >= 55 or self.joy >= 80) and not manual and random.random() < 0.65:
                 use_gemini = False
             if use_gemini:
+                state_hint = self.affect_state()
                 prompt = (
-                    f"(Hora local {now_str}) Suelta un comentario espontaneo breve e ingenioso para acompanar al usuario en su escritorio."
+                    f"(Hora local {now_str}, animo={state_hint}, enojo={self.anger}/100, alegria={self.joy}/100) Suelta un comentario espontaneo breve acorde a tu estado de animo actual."
                     if self.language == "es"
-                    else f"(Local time {now_str}) Say a brief spontaneous in-character remark for the user at their desk."
+                    else f"(Local time {now_str}, state={state_hint}, anger={self.anger}/100, happiness={self.joy}/100) Say a brief spontaneous remark matching your current mood level."
                 )
                 ok, mood, msg = self._call_gemini(char_id, prompt, style_label, current_mood, use_history=False, timeout=45)
                 if ok:
@@ -793,6 +863,7 @@ class DokiBrain:
                 }
             swarm = is_swarm_love_command(user_text)
             if swarm:
+                self._adjust_affect(-25, +28)
                 bank = SWARM_REPLIES_EN if self.language == "en" else SWARM_REPLIES_ES
                 mood, txt = bank.get(char_id, bank["natsuki"])
                 return {
@@ -808,9 +879,11 @@ class DokiBrain:
                 res["heard"] = voice_match.heard
                 res["source"] = "voice_chat"
                 return res
+            self._apply_text_sentiment(user_text)
             if self.api_key:
                 ok, mood, msg = self._call_gemini(char_id, user_text, style_label, current_mood, use_history=True, timeout=45)
                 if ok:
+                    self._apply_mood_feedback(mood)
                     return {"ok": True, "mood": mood, "text": msg, "source": "gemini", "swarm": False}
                 return {
                     "ok": False,
@@ -824,16 +897,31 @@ class DokiBrain:
                     "swarm": False,
                 }
             mood, msg = self.offline_reply(char_id, user_text)
+            self._apply_mood_feedback(mood)
             return {"ok": True, "mood": mood, "text": strip_emojis(msg), "source": "offline", "swarm": False}
 
         if cmd == "poke":
             clicks = int(req.get("clicks", 1) or 1)
             zone = str(req.get("zone", "normal") or "normal").lower()
             if zone in ("zone1", "zone2", "head"):
-                pool = self._char_bank(char_id, zone)
+                if zone in ("zone1", "zone2"):
+                    self._adjust_affect(+28, -22)
+                    if self.anger >= 75 and random.random() < 0.55:
+                        aff_bank = AFFECT_DIALOGUES_EN if self.language == "en" else AFFECT_DIALOGUES_ES
+                        pool = aff_bank.get(char_id, aff_bank["natsuki"])["angry"]
+                    else:
+                        pool = self._char_bank(char_id, zone)
+                else:
+                    self._adjust_affect(-14, +16)
+                    if self.joy >= 80 and self.anger < 25 and random.random() < 0.45:
+                        aff_bank = AFFECT_DIALOGUES_EN if self.language == "en" else AFFECT_DIALOGUES_ES
+                        pool = aff_bank.get(char_id, aff_bank["natsuki"])["happy"]
+                    else:
+                        pool = self._char_bank(char_id, zone)
                 mood, raw = self._pick_from_deck(f"poke_{char_id}_{zone}_{self.language}", pool)
                 forced = "angry" if zone in ("zone1", "zone2") else mood
                 return {"ok": True, "mood": forced, "text": apply_user_name(raw, self.user_name), "source": "offline"}
+            self._adjust_affect(-4, +6)
             if self.api_key and clicks % 6 == 0:
                 prompt = (
                     f"El usuario te acaba de dar {clicks} clics encima en tu rincon de la pantalla. Reacciona!"
@@ -848,6 +936,7 @@ class DokiBrain:
             return {"ok": True, "mood": mood, "text": apply_user_name(raw, self.user_name), "source": "offline"}
 
         if cmd == "outfit_changed":
+            self._adjust_affect(-6, +10)
             if self.api_key and random.random() < 0.35:
                 prompt = (
                     f"El usuario te cambio de estilo/ropa a '{style_label}'. Comenta brevemente como te sientes asi."
@@ -952,7 +1041,7 @@ class DokiBrain:
             else:
                 mapped["cmd"] = "spontaneous"
                 mapped["manual"] = trigger == "manual"
-            return self.handle(mapped)
+            return self._handle_inner(mapped)
 
         if cmd == "quit":
             return {"ok": True, "quit": True}
@@ -990,6 +1079,26 @@ def run_self_test() -> int:
             all_pairs.extend(lst)
     all_pairs.extend(SWARM_REPLIES_ES.values())
     all_pairs.extend(SWARM_REPLIES_EN.values())
+    for abank in (AFFECT_DIALOGUES_ES, AFFECT_DIALOGUES_EN):
+        for cdict in abank.values():
+            for lst in cdict.values():
+                all_pairs.extend(lst)
+
+    # Test anger & joy escalation + affect-driven spontaneous dialogues
+    brain.anger = 10
+    brain.joy = 55
+    for _ in range(3):
+        r_ang = brain.handle({"cmd": "poke", "character": "yuri", "zone": "zone1"})
+    assert r_ang["anger"] >= 80 and r_ang["affect"] == "furious", f"Expected furious anger level, got {r_ang}"
+    r_sp_ang = brain.handle({"cmd": "spontaneous", "character": "yuri"})
+    assert r_sp_ang["ok"] and r_sp_ang["mood"] in ("angry", "tsun", "sad"), f"Angry spontaneous mood mismatch: {r_sp_ang}"
+    for _ in range(5):
+        r_pat = brain.handle({"cmd": "poke", "character": "yuri", "zone": "head"})
+    assert r_pat["joy"] >= 80 and r_pat["anger"] <= 30, f"Headpats should cool anger and boost joy: {r_pat}"
+    r_sp_joy = brain.handle({"cmd": "spontaneous", "character": "yuri"})
+    assert r_sp_joy["ok"] and r_sp_joy["mood"] in ("happy", "excited", "blush", "laugh"), f"Joyful spontaneous mood mismatch: {r_sp_joy}"
+    brain.anger = 10
+    brain.joy = 55
 
     for m, txt in all_pairs:
         assert m in ALLOWED_MOODS, f"Invalid mood: {m}"

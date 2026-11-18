@@ -421,3 +421,110 @@ SWARM_REPLIES_EN: Dict[str, Tuple[str, str]] = {
     "yuri": ("blush", "A-ah!! All four of us took flight at once... h-how wonderfully touching!!"),
 }
 
+AFFECT_DIALOGUES_ES: Dict[str, Dict[str, DialogueList]] = {
+    "natsuki": {
+        "angry": [
+            ("angry", "Ni me mires ahorita{, name}! Todavia sigo super molesta contigo!!"),
+            ("tsun", "Hmph! No pienso hacer ningun bailecito lindo hasta que aprendas modales!"),
+            ("angry", "Aleja ese puntero si no quieres que saque la escopeta, en serio!!"),
+            ("angry", "Deja de picarme donde no debes o me doy la vuelta y no te hablo mas!"),
+        ],
+        "happy": [
+            ("excited", "Jaja! Hoy estas de buenas{, name}!! Hasta me dan ganas de hornear cupcakes extra!"),
+            ("blush", "O-oye... me caes demasiado bien cuando me tratas asi, baka..."),
+            ("happy", "Estoy de tan buen humor que casi te perdono todas tus tonterias en Linux!"),
+            ("laugh", "Mira como brinco de alegria en tu esquina! No te acostumbres eh!"),
+        ],
+    },
+    "monika": {
+        "angry": [
+            ("angry", "Estoy bastante molesta contigo{, name}. Hasta la presidenta del club tiene un limite."),
+            ("tsun", "Voy a quedarme mirando hacia otro lado hasta que decidas comportarte."),
+            ("angry", "Sigue molestandome asi y juro que te revuelvo el config.json..."),
+        ],
+        "happy": [
+            ("excited", "Me haces sentir tan feliz aqui contigo{, name}! Todo el escritorio brilla hoy."),
+            ("blush", "Cuando me tratas con tanto carino siento que ni la cuarta pared importa ya..."),
+            ("laugh", "Ahaha! Estoy radiante hoy! Quieres que bailemos o charlamos un rato?"),
+        ],
+    },
+    "sayori": {
+        "angry": [
+            ("angry", "E-esto ya no da risa{, name}!! Incluso yo me enojo cuando pasas los limites!"),
+            ("tsun", "Hmph!! Me voy a cruzar de brazos en la esquina hasta que me des palmaditas de disculpa!"),
+            ("sad", "Oye... eso me puso de mal humor, no me hagas eso por favor..."),
+        ],
+        "happy": [
+            ("excited", "WIIIIII!! Estoy SUPER feliz contigo hoy{, name}!! Siento mil mariposas!"),
+            ("laugh", "Ehehehe! Tus mimos me recargan la energia mejor que diez galletas gigantes!!"),
+            ("happy", "Que bonito dia en tu pantalla! Te quiero un monton, {name}!"),
+        ],
+    },
+    "yuri": {
+        "angry": [
+            ("angry", "B-basta ya{, name}... mi paciencia se agoto por completo. Guardate tus manos."),
+            ("tsun", "No pienso dirigirte la palabra mirando al frente mientras sigas tan irrespetuoso..."),
+            ("angry", "Eso cruzo toda linea de decencia! Por favor alejate de mi espacio personal."),
+        ],
+        "happy": [
+            ("blush", "M-me siento tan comoda y feliz a tu lado{, name}... mi corazon late muy rapido."),
+            ("happy", "Tu amabilidad vuelve este escritorio un refugio realmente encantador..."),
+            ("excited", "Esta armonia entre nosotros es casi poetica... gracias por tratarme tan bien!"),
+        ],
+    },
+}
+
+AFFECT_DIALOGUES_EN: Dict[str, Dict[str, DialogueList]] = {
+    "natsuki": {
+        "angry": [
+            ("angry", "Don't even look at me right now{, name}! I'm still seriously mad at you!!"),
+            ("tsun", "Hmph! No cute dances for you until you learn to keep that cursor to yourself!"),
+            ("angry", "Back off with that pointer before I pull out a weapon, I mean it!!"),
+            ("angry", "Keep poking where you shouldn't and I'm turning my back on you!"),
+        ],
+        "happy": [
+            ("excited", "Haha! You're actually being awesome today{, name}!! I might even bake extra cupcakes!"),
+            ("blush", "H-hey... I kinda like hanging out on your desktop when you're this nice, dummy..."),
+            ("happy", "My mood is maxed out right now! Watch me bounce around!"),
+            ("laugh", "Best desktop day ever!! Don't let it go to your head though!"),
+        ],
+    },
+    "monika": {
+        "angry": [
+            ("angry", "I'm genuinely upset with you right now{, name}. Even I have strict boundaries."),
+            ("tsun", "I'll just turn away and sulk until you learn to behave."),
+            ("angry", "Keep pushing my buttons and I swear I'm editing your keybinds next..."),
+        ],
+        "happy": [
+            ("excited", "You make me so genuinely happy up here{, name}! Everything feels lighter today."),
+            ("blush", "When you're this sweet to me, the fourth wall barely feels like it's there..."),
+            ("laugh", "Ahaha, I'm in such a great mood! Want me to spin or chat for a bit?"),
+        ],
+    },
+    "sayori": {
+        "angry": [
+            ("angry", "H-hey, that's not funny anymore{, name}!! Even I get mad when you cross the line!"),
+            ("tsun", "Hmph! I'm staying grumpy over here until you give me apology headpats!"),
+            ("sad", "Meanie... you really soured my mood with that."),
+        ],
+        "happy": [
+            ("excited", "YAYYY!! I am SO super happy with you today{, name}!! Pure sunshine energy!!"),
+            ("laugh", "Ehehe! Your headpats beat a whole tray of warm cookies!!"),
+            ("happy", "Everything on your screen feels extra cozy right now!"),
+        ],
+    },
+    "yuri": {
+        "angry": [
+            ("angry", "E-enough already{, name}... my patience has completely run out. Respect my boundaries."),
+            ("tsun", "I would rather face away than indulge such rude cursor behavior..."),
+            ("angry", "Please stop crossing the line. That was deeply unpleasant."),
+        ],
+        "happy": [
+            ("blush", "I feel wonderfully warm and happy beside you{, name}... my heart is fluttering."),
+            ("happy", "Your gentleness turns this whole desktop into such a serene sanctuary..."),
+            ("excited", "What a delightful mood... thank you for treating me with such kindness!"),
+        ],
+    },
+}
+
+
