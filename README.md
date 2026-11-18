@@ -1,6 +1,12 @@
 # DDLC Shimeji (Natsuki, Monika, Sayori y Yuri — Wayland)
 
-Acompañante de escritorio para Wayland (esquina inferior izquierda o derecha) implementado en **C++17** (`gtk-layer-shell` + GTK3 + Cairo + librsvg), **Rust** (`natsuki_core`: cargador/rasterizador 3D de modelos **L4D2 Steam Workshop (.vpk)** + compositor de capas **PNG 2D** RGBA->ARGB32 + configuración JSON) y **Python** (`natsuki_brain.py`: >1,200 diálogos en español y >1,000 en inglés sin emojis, Easter eggs e integración opcional con Gemini).
+Acompañante de escritorio para Wayland (esquina inferior izquierda o derecha) implementado en **C++17** (`gtk-layer-shell` + GTK3 + Cairo + librsvg), **Rust** (`natsuki_core`: cargador/rasterizador 3D de modelos **L4D2 Steam Workshop (.vpk)** + compositor de capas **PNG 2D** RGBA->ARGB32 + configuración JSON) y **Python** (`natsuki_brain.py`: diálogos en inglés y español sin emojis, niveles de enojo/alegría, comandos de voz Vosk, Easter eggs e integración opcional con Gemini).
+
+## Vista previa de skins (3D + 2D)
+
+| Natsuki (21 skins) | Monika (18 skins) | Sayori (15 skins) | Yuri (13 skins) |
+| :---: | :---: | :---: | :---: |
+| ![Natsuki Skins](assets/previews/natsuki_skins.gif) | ![Monika Skins](assets/previews/monika_skins.gif) | ![Sayori Skins](assets/previews/sayori_skins.gif) | ![Yuri Skins](assets/previews/yuri_skins.gif) |
 
 ---
 
@@ -107,9 +113,10 @@ make clean
 
 ## Uso y configuración
 
-- **Clic izquierdo sobre la Doki**:
-  - Reacción con animación de rebote; incluye dos zonas especiales sensibles que disparan diálogos enojados/tsundere.
-  - En modelos **L4D2 3D**, arrastra horizontalmente sobre el personaje para rotar su ángulo 3D.
+- **Clic izquierdo / arrastre sobre la Doki**:
+  - Palmaditas en la cabeza, caricias y zonas sensibles ajustadas a cada proporción (3D cuerpo completo, 2D medio cuerpo `jn_*` y 2D Salvation).
+  - **Niveles de enojo y alegría (`0–100%`)**: si la molestas en zonas indebidas o le escribes groserías sube el enojo (hace poses de advertencia, se voltea de espaldas, camina más rápido y suelta diálogos furiosos); si la acaricias en la cabeza o la tratas bien sube la alegría (baila, salta con notas musicales y se pone cariñosa).
+  - En modelos **L4D2 3D**, arrastra horizontalmente sobre el personaje para rotar su ángulo 3D; en **sprites 2D**, arrastra para moverla libremente por la pantalla.
 - **Clic derecho sobre la Doki**:
   - Muestra u oculta el menú inferior (dock) con botones SVG: siguiente diálogo, chat rápido, selector de Doki/ropa/3D (modelos L4D2 3D y skins PNG), cambio rápido `3D / 2D`, cambio de esquina **Izquierda / Derecha**, tu nombre, ajustes/Gemini API, pausa, **modo reactivo al sonido**, ocultar barra y cerrar (`Salir`).
 - **Modo reactivo al sonido** *(opcional, usa `parec` de `pipewire-pulse`/`libpulse` o `pw-record`)*:
